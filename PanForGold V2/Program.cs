@@ -20,7 +20,6 @@ namespace PanForGold
 
     class PanForGold
     {
-        //yaya
         static void Main()
         {
             bool debugmode = false;
