@@ -47,7 +47,7 @@ namespace PanForGold_V2
             ConsoleKeyInfo k;
             Console.CursorVisible = false;
         enter:
-            Console.WriteLine($"Pan For Gold!\n\nPress Enter to pan for gold\nPress W to open the workshop\nPress S to sell gold\nPress B to open shop\n\nImpure Gold: {ig}g\nPure Gold: {g}g\nMoney: ¢{m}");
+            Console.WriteLine($"Pan For Gold!\n\nPress Enter to pan for gold\nPress W to open the workshop\nPress S to sell gold\nPress B to open shop\n\nImpure Gold: {ig.ToString("F3")}g\nPure Gold: {g.ToString("F3")}g\nMoney: ¢{m}");
         skip:
             if (Console.KeyAvailable)
             {
@@ -63,7 +63,7 @@ namespace PanForGold_V2
                         goto enter;
 
                     case ConsoleKey.W:
-                        g += Workshop(ref ig, aqua, debugmode);
+                        g = Math.Round(g + Workshop(ref ig, aqua, debugmode), 3);
                         goto enter;
 
                     case ConsoleKey.Oem3:
@@ -254,7 +254,7 @@ namespace PanForGold_V2
             }
             else 
             {
-                if (debugmode == true)
+                if (debugmode == true && ig != 0)
                 {
                     double g =+ Math.Round((ig * m), 3);
                     Console.Clear();
@@ -264,10 +264,17 @@ namespace PanForGold_V2
                     ig = 0;
                     return g;
                 }
+                else if (debugmode == false)
+                {
+                    Console.Clear();
+                    Console.WriteLine("This feature is not implemented yet.\n");
+                    double g = 0;
+                    return g;
+                }
                 else
                 {
                     Console.Clear();
-                    Console.WriteLine("You need a container to put aqua regia in.\n");
+                    Console.WriteLine("You don't have enough gold to purify!\n");
                     double g = 0;
                     return g;
                 }
@@ -276,9 +283,10 @@ namespace PanForGold_V2
 
         public static void Shop(ConsoleKeyInfo k, Data data, ref int m)
         {
-            int i = 0;
             Console.Clear();
-            Console.WriteLine("Welcome to the shop!\nPress a number key to select one of the options\n");
+        reset:
+            int i = 0;
+            Console.WriteLine("Welcome to the shop!\nPress a number key to select one of the options or Press X to exit\n");
             foreach (var v in data.shopItems)
             {
                 Console.Write($"{i+1}. {data.shopItems[i].Name,-25} ¢{data.shopItems[i].Price} ");
@@ -291,24 +299,45 @@ namespace PanForGold_V2
             }
         retry:
             k = Console.ReadKey(true);
-            if (!int.TryParse(k.KeyChar.ToString(), out int n))
+            if (k.Key == ConsoleKey.X)
+            {
+                Console.Clear();
+                Console.WriteLine("You exited the shop.\n");
+                return;
+            }
+            else if (!int.TryParse(k.KeyChar.ToString(), out int n))
             {
                 goto retry;
             }
             else
             {
-                if (!data.shopItems[n - 1].Owned == true && m >= data.shopItems[n - 1].Price)
+                try
                 {
-                    data.shopItems[n - 1].Owned = true;
-                    m -= data.shopItems[n - 1].Price;
-                    Console.Clear();
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"You purchased {data.shopItems[n-1].Name} for ¢{data.shopItems[n-1].Price}!\n");
-                    Console.ResetColor();
+                    if (!data.shopItems[n - 1].Owned == true && m >= data.shopItems[n - 1].Price)
+                    {
+                        data.shopItems[n - 1].Owned = true;
+                        m -= data.shopItems[n - 1].Price;
+                        Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"You purchased {data.shopItems[n - 1].Name} for ¢{data.shopItems[n - 1].Price}!\n");
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        Console.Clear();
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"You do not have enough money! You need ¢{data.shopItems[n - 1].Price} to buy a {data.shopItems[n - 1].Name}.\n");
+                        Console.ResetColor();
+                        goto reset;
+                    }
                 }
-                else
+                catch (IndexOutOfRangeException)
                 {
-
+                    Console.Clear();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("That item does not exist!\n");
+                    Console.ResetColor();
+                    goto reset;
                 }
             }
         }
