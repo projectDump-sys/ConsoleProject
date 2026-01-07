@@ -1,5 +1,8 @@
 ﻿using System;
+using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using System.Transactions;
@@ -31,6 +34,23 @@ namespace PanForGold_V2
             new ShopItems("Paint Bucket", 1999, false),
             new ShopItems("Insulating Material", 5999, false)
         };
+
+        public enum Places
+        {
+            [Description("River")] River = 0,
+            [Description("Home")] Home,
+            [Description("Goldburg")] City,
+            [Description("Goldburg Toy Store")] ToyStore,
+            [Description("Gold Depot")] HardwareStore,
+            [Description("Goldburg Custom Glass")] Glassblowers
+        }
+
+        public static string ReadDescription(Places val)
+        {
+            FieldInfo fi = val.GetType().GetField(val.ToString());
+            DescriptionAttribute[] attributes = (DescriptionAttribute[])fi.GetCustomAttributes(typeof(DescriptionAttribute), false);
+            return attributes.Length > 0 ? attributes[0].Description : val.ToString();
+        }
     }
     
     public class PanForGold
@@ -39,31 +59,27 @@ namespace PanForGold_V2
         {
             Data data = new Data();
             bool debugmode = false;
-            bool aqua = false;
-            int m = 0;
-            var g = 0.0;
-            var ig = 0.0;
+            int money = 0;
+            int location = 2;
+            var pureGold = 0.0;
+            var impureGold = 0.0;
             var tbdmult = 1;
-            ConsoleKeyInfo k;
+            ConsoleKeyInfo keyinfo;
             Console.CursorVisible = false;
         enter:
-            Console.WriteLine($"Pan For Gold!\n\nPress Enter to pan for gold\nPress W to open the workshop\nPress S to sell gold\nPress B to open shop\n\nImpure Gold: {ig.ToString("F3")}g\nPure Gold: {g.ToString("F3")}g\nMoney: ¢{m}");
+            Console.WriteLine($"Pan For Gold!\n\nPress Enter to pan for gold\nPress W to open the workshop\nPress S to sell gold\nPress B to open shop\n\nImpure Gold: {impureGold.ToString("F3")}g\nPure Gold: {pureGold.ToString("F3")}g\nMoney: ¢{money}");
         skip:
             if (Console.KeyAvailable)
             {
-                k = Console.ReadKey(true);
-                switch (k.Key)
+                keyinfo = Console.ReadKey(true);
+                switch (keyinfo.Key)
                 {
                     case ConsoleKey.Enter:
-                        ig = Math.Round(ig + StartPanning(tbdmult, debugmode), 3);
+                        impureGold = Math.Round(impureGold + StartPanning(tbdmult, debugmode), 3);
                         goto enter;
 
                     case ConsoleKey.S:
-                        m += SellGold(k, ref g, ref ig);
-                        goto enter;
-
-                    case ConsoleKey.W:
-                        g = Math.Round(g + Workshop(ref ig, aqua, debugmode), 3);
+                        money += SellGold(keyinfo, ref pureGold, ref impureGold);
                         goto enter;
 
                     case ConsoleKey.Oem3:
@@ -85,8 +101,8 @@ namespace PanForGold_V2
                         }
                         goto enter;
 
-                    case ConsoleKey.B:
-                        Shop(k, data, ref m);
+                    case ConsoleKey.M:
+                        Navigate(keyinfo, ref location);
                         goto enter;
 
                     default:
@@ -101,61 +117,61 @@ namespace PanForGold_V2
 
         public static double StartPanning(double tbdmult, bool debugmode)
         {
-            Random r = new Random();
-            double w = Math.Round(((0.05 + (r.NextDouble() * (0.35 - 0.05))) * tbdmult), 3);
+            Random random = new Random();
+            double weight = Math.Round(((0.05 + (random.NextDouble() * (0.35 - 0.05))) * tbdmult), 3);
             if (debugmode != true)
             {
-                int c = 0;
+                int percent = 0;
                 Console.Clear();
                 do
                 {
                     Console.SetCursorPosition(0, 2);
-                    string a = c switch
+                    string a = percent switch
                     {
                         95 => "(;.,",
                         90 => "(;__",
                         5 => "u/~~",
                         0 => "(~~~",
-                        _ => (c % 2 == 1) ? "~~u/" : @"\u~~"
+                        _ => (percent % 2 == 1) ? "~~u/" : @"\u~~"
                     };
                     Console.Write(a);
                     Console.SetCursorPosition(0, 0);
-                    Console.Write($"Panning {c}% complete.");
+                    Console.Write($"Panning {percent}% complete.");
                     Thread.Sleep(250);
-                    c += 5;
-                } while (c < 100);
+                    percent += 5;
+                } while (percent < 100);
             }
             Console.ForegroundColor = ConsoleColor.Green;
             Console.Clear();
-            Console.WriteLine($"Panning Complete!, you obtained {w}g of gold!\n");
+            Console.WriteLine($"Panning Complete!, you obtained {weight}g of gold!\n");
             Console.ResetColor();
             while (Console.KeyAvailable)
                 Console.ReadKey(true);
-            return w;
+            return weight;
         }
 
-        public static int SellGold(ConsoleKeyInfo k, ref double g, ref double ig)
+        public static int SellGold(ConsoleKeyInfo keyinfo, ref double pureGold, ref double impureGold)
         {
-            int m = 0;
-            const int s = 13887;
-            const double impm = 0.125;
-            int gm = Convert.ToInt32((g * s));
-            int im = Convert.ToInt32((ig * s * impm));
-            int tm = Convert.ToInt32((gm + im));
-            if (g != 0 && ig != 0)
+            int money = 0;
+            const int SELLMULT = 13887;
+            const double IMPUREMULT = 0.125;
+            int pureGoldMoney = Convert.ToInt32((pureGold * SELLMULT));
+            int impureGoldMoney = Convert.ToInt32((impureGold * SELLMULT * IMPUREMULT));
+            int totalMoney = Convert.ToInt32((pureGoldMoney + impureGoldMoney));
+            if (pureGold != 0 && impureGold != 0)
             {
                 Console.Clear();
-                Console.WriteLine($"Press I to sell {ig}g of impure gold for ¢{im}\nPress P to sell {g}g of pure gold for ¢{gm}\nPress B to sell both for ¢{tm}\nPress X to exit.");
+                Console.WriteLine($"Press I to sell {impureGold}g of impure gold for ¢{impureGoldMoney}\nPress P to sell {pureGold}g of pure gold for ¢{pureGoldMoney}\nPress B to sell both for ¢{totalMoney}\nPress X to exit.");
             }
-            else if (g != 0 && ig == 0)
+            else if (pureGold != 0 && impureGold == 0)
             {
                 Console.Clear();
-                Console.WriteLine($"Press P to sell {g}g of pure gold for ¢{gm}\nPress X to exit.");
+                Console.WriteLine($"Press P to sell {pureGold}g of pure gold for ¢{pureGoldMoney}\nPress X to exit.");
             }
-            else if (ig != 0 && g == 0)
+            else if (impureGold != 0 && pureGold == 0)
             {
                 Console.Clear();
-                Console.WriteLine($"Press I to sell {ig}g of impure gold for ¢{im}\nPress X to exit.");
+                Console.WriteLine($"Press I to sell {impureGold}g of impure gold for ¢{impureGoldMoney}\nPress X to exit.");
             }
             else
             {
@@ -163,22 +179,22 @@ namespace PanForGold_V2
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("You don't have any gold to sell!\n");
                 Console.ResetColor();
-                return m;
+                return money;
             }
         retry:
-            k = Console.ReadKey(true);
-            switch (k.Key)
+            keyinfo = Console.ReadKey(true);
+            switch (keyinfo.Key)
             {
                 case ConsoleKey.I:
-                    if (ig != 0)
+                    if (impureGold != 0)
                     {
-                        m = Convert.ToInt32(im);
+                        money = Convert.ToInt32(impureGoldMoney);
                         Console.Clear();
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"You sold {ig}g of impure gold for ¢{m}!\n");
+                        Console.WriteLine($"You sold {impureGold}g of impure gold for ¢{money}!\n");
                         Console.ResetColor();
-                        ig = 0;
-                        return m;
+                        impureGold = 0;
+                        return money;
                     }
                     else
                     {
@@ -186,15 +202,15 @@ namespace PanForGold_V2
                     }
 
                 case ConsoleKey.P:
-                    if (g != 0)
+                    if (pureGold != 0)
                     {
-                        m = Convert.ToInt32(gm);
+                        money = Convert.ToInt32(pureGoldMoney);
                         Console.Clear();
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"You sold {g}g of pure gold for ¢{m}!\n");
+                        Console.WriteLine($"You sold {pureGold}g of pure gold for ¢{money}!\n");
                         Console.ResetColor();
-                        g = 0;
-                        return m;
+                        pureGold = 0;
+                        return money;
                     }
                     else
                     {
@@ -202,16 +218,16 @@ namespace PanForGold_V2
                     }
 
                 case ConsoleKey.B:
-                    if (g != 0 && ig != 0)
+                    if (pureGold != 0 && impureGold != 0)
                     {
-                        m = Convert.ToInt32(tm);
+                        money = Convert.ToInt32(totalMoney);
                         Console.Clear();
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"You sold {g}g of gold and {ig}g of impure gold for ¢{m}!\n");
+                        Console.WriteLine($"You sold {pureGold}g of gold and {impureGold}g of impure gold for ¢{money}!\n");
                         Console.ResetColor();
-                        g = 0;
-                        ig = 0;
-                        return m;
+                        pureGold = 0;
+                        impureGold = 0;
+                        return money;
                     }
                     else
                     {
@@ -219,69 +235,201 @@ namespace PanForGold_V2
                     }
 
                 case ConsoleKey.X:
-                    m = 0;
+                    money = 0;
                     Console.Clear();
                     Console.WriteLine("You successfully exited the sell menu.\n");
-                    return m;
+                    return money;
 
                 default:
                     goto retry;
             }
         }
 
-        public static double Workshop(ref double ig, bool aqua, bool debugmode)
+        public static void Navigate(ConsoleKeyInfo keyinfo, ref int location)
         {
-            double m = 0.208333333333;
+            int i = 1;
+            int b = 0;
+            Console.Clear();
+            Console.WriteLine($"Where would you like to go?\n");
+            foreach (Data.Places place in Enum.GetValues(typeof(Data.Places)))
+            {
+                if (location == 0)
+                {
+                    if (i > 2)
+                    {
+                        break;
+                    }
+                }
+                else if (location == 1)
+                {
+                    if (i > 3)
+                    {
+                        break;
+                    }
+                }
+                else if (location == 2)
+                {
+                    b = 1;
+                    if (i == 1)
+                    {
+                        i++;
+                    }
+                    else if (i > 6)
+                    {
+                        break;
+                    }
+                }
+                else if (location >= 3)
+                {
+                    Console.WriteLine($"1. Goldburg\n2. {Data.ReadDescription((Data.Places)location)} (You are here!)");
+                    goto reboot;
+                }
+                Console.Write($"{i - b}. {Data.ReadDescription((Data.Places)(i - 1))} ");
+                if (location == (i - 1))
+                {
+                    Console.Write("(You are here!)");
+                }
+                Console.Write("\n");
+                i++;
+            }
+        reboot:
+            keyinfo = Console.ReadKey(true);
+            if (!int.TryParse(keyinfo.KeyChar.ToString(), out int n))
+            {
+                goto reboot;
+            }
+            else if (location == 0)
+            {
+                if (n <= 2 && n != 0)
+                {
+                    location = (n - 1);
+                    Console.Clear();
+                    Console.WriteLine($"You went to {Data.ReadDescription((Data.Places)location)}!\n");
+                }
+                else if (location == n-1)
+                {
+                    Console.Clear();
+                    Console.WriteLine("You are already there!\n");
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.WriteLine("You can't go there!\n");
+                }
+            }
+            else if (location == 1)
+            {
+                if (n <= 3 && n != 0)
+                {
+                    location = (n - 1);
+                    Console.Clear();
+                    Console.WriteLine($"You went to {Data.ReadDescription((Data.Places)location)}!\n");
+                }
+                else if (location == n -1)
+                {
+                    Console.Clear();
+                    Console.WriteLine("You are already there\n");
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.WriteLine("You can't go there!\n");
+
+                }
+            }
+            else if (location == 2)
+            {
+                if (n < 6 && n != 0)
+                {
+                    location = n;
+                    Console.Clear();
+                    Console.WriteLine($"You went to {Data.ReadDescription((Data.Places)location)}!\n");
+                }
+                else if (location == n)
+                {
+                    Console.Clear();
+                    Console.WriteLine("You are already there!\n");
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.WriteLine("You can't go there!\n");
+                }
+            }
+            else if (location >= 3)
+            {
+                if (n == 1)
+                {
+                    location = 2;
+                    Console.Clear();
+                    Console.WriteLine($"You went to {Data.ReadDescription((Data.Places)location)}!\n");
+                }
+                else if (n == 2)
+                {
+                    Console.Clear();
+                    Console.WriteLine("You are already there!\n");
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.WriteLine("You can't go there!\n");
+                }
+            }
+        }
+
+        /*public static double Workshop(ref double impureGold, bool aqua, bool debugmode)
+        {
+            double pureGold;
             if (aqua == true)
             {
-                if (ig != 0)
+                if (impureGold != 0)
                 {
-                    double g =+ Math.Round((ig * m), 3);
+                    pureGold =+ Math.Round(impureGold, 3);
                     Console.Clear();
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"You purified {ig}g of impure gold into {g}g of pure gold!\n");
+                    Console.WriteLine($"You purified {impureGold}g of impure gold into {pureGold}g of pure gold!\n");
                     Console.ResetColor();
-                    ig = 0;
-                    return g;
+                    impureGold = 0;
+                    return pureGold;
                 }
                 else
                 {
                     Console.Clear();
                     Console.WriteLine("You don't have any gold to purify!\n");
-                    double g = 0;
-                    return g;
+                    pureGold = 0;
+                    return pureGold;
                 }
             }
             else 
             {
-                if (debugmode == true && ig != 0)
+                if (debugmode == true && impureGold != 0)
                 {
-                    double g =+ Math.Round((ig * m), 3);
+                    pureGold =+ Math.Round(impureGold, 3);
                     Console.Clear();
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"You purified {ig}g of impure gold into {g}g of pure gold!\n");
+                    Console.WriteLine($"You purified {impureGold}g of impure gold into {pureGold}g of pure gold!\n");
                     Console.ResetColor();
-                    ig = 0;
-                    return g;
+                    impureGold = 0;
+                    return pureGold;
                 }
                 else if (debugmode == false)
                 {
                     Console.Clear();
                     Console.WriteLine("This feature is not implemented yet.\n");
-                    double g = 0;
-                    return g;
+                    pureGold = 0;
+                    return pureGold;
                 }
                 else
                 {
                     Console.Clear();
                     Console.WriteLine("You don't have enough gold to purify!\n");
-                    double g = 0;
-                    return g;
+                    pureGold = 0;
+                    return pureGold;
                 }
             }
         }
 
-        public static void Shop(ConsoleKeyInfo k, Data data, ref int m)
+        public static void Shop(ConsoleKeyInfo keyinfo, Data data, ref int money)
         {
             Console.Clear();
         reset:
@@ -298,14 +446,14 @@ namespace PanForGold_V2
                 i++;
             }
         retry:
-            k = Console.ReadKey(true);
-            if (k.Key == ConsoleKey.X)
+            keyinfo = Console.ReadKey(true);
+            if (keyinfo.Key == ConsoleKey.X)
             {
                 Console.Clear();
                 Console.WriteLine("You exited the shop.\n");
                 return;
             }
-            else if (!int.TryParse(k.KeyChar.ToString(), out int n))
+            else if (!int.TryParse(keyinfo.KeyChar.ToString(), out int n))
             {
                 goto retry;
             }
@@ -313,10 +461,10 @@ namespace PanForGold_V2
             {
                 try
                 {
-                    if (!data.shopItems[n - 1].Owned == true && m >= data.shopItems[n - 1].Price)
+                    if (!data.shopItems[n - 1].Owned == true && money >= data.shopItems[n - 1].Price)
                     {
                         data.shopItems[n - 1].Owned = true;
-                        m -= data.shopItems[n - 1].Price;
+                        money -= data.shopItems[n - 1].Price;
                         Console.Clear();
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine($"You purchased {data.shopItems[n - 1].Name} for ¢{data.shopItems[n - 1].Price}!\n");
@@ -340,6 +488,6 @@ namespace PanForGold_V2
                     goto reset;
                 }
             }
-        }
+        }*/
     }
 }
